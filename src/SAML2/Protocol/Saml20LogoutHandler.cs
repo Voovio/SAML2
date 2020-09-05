@@ -42,51 +42,62 @@ namespace SAML2.Protocol
         /// <param name="context">The context.</param>
         protected override void Handle(HttpContext context)
         {
-            Logger.Debug(TraceMessages.LogoutHandlerCalled);
+            try
+            {
+                Logger.Debug(TraceMessages.LogoutHandlerCalled);
 
-            // Some IDP's are known to fail to set an actual value in the SOAPAction header
-            // so we just check for the existence of the header field.
-            if (Array.Exists(context.Request.Headers.AllKeys, s => s == SoapConstants.SoapAction))
-            {
-                HandleSoap(context, context.Request.InputStream);
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(context.Request.Params["SAMLart"]))
-            {
-                HandleArtifact(context);
-                return;
-            }
-
-            if (!string.IsNullOrEmpty(context.Request.Params["SAMLResponse"]))
-            {
-                HandleResponse(context);
-            }
-            else if (!string.IsNullOrEmpty(context.Request.Params["SAMLRequest"]))
-            {
-                HandleRequest(context);
-            }
-            else
-            {
-                IdentityProvider idpEndpoint = null;
-
-                var idpId = StateService.Get<string>(IdpSessionIdKey);
-                if (!string.IsNullOrEmpty(idpId))
+                // Some IDP's are known to fail to set an actual value in the SOAPAction header
+                // so we just check for the existence of the header field.
+                if (Array.Exists(context.Request.Headers.AllKeys, s => s == SoapConstants.SoapAction))
                 {
-                    idpEndpoint = RetrieveIDPConfiguration(StateService.Get<string>(IdpLoginSessionKey));
+                    HandleSoap(context, context.Request.InputStream);
+                    return;
                 }
 
-                if (idpEndpoint == null)
+                if (!string.IsNullOrEmpty(context.Request.Params["SAMLart"]))
                 {
-                    // TODO: Reconsider how to accomplish this.
-                    context.User = null;
-                    FormsAuthentication.SignOut();
-
-                    Logger.ErrorFormat(ErrorMessages.UnknownIdentityProvider, string.Empty);
-                    throw new Saml20Exception(string.Format(ErrorMessages.UnknownIdentityProvider, string.Empty));
+                    HandleArtifact(context);
+                    return;
                 }
 
-                TransferClient(idpEndpoint, context);
+                if (!string.IsNullOrEmpty(context.Request.Params["SAMLResponse"]))
+                {
+                    HandleResponse(context);
+                }
+                else if (!string.IsNullOrEmpty(context.Request.Params["SAMLRequest"]))
+                {
+                    HandleRequest(context);
+                }
+                else
+                {
+                    IdentityProvider idpEndpoint = null;
+
+                    var idpId = StateService.Get<string>(IdpSessionIdKey);
+                    if (!string.IsNullOrEmpty(idpId))
+                    {
+                        idpEndpoint = RetrieveIDPConfiguration(StateService.Get<string>(IdpLoginSessionKey));
+                    }
+
+                    if (idpEndpoint == null)
+                    {
+                        // TODO: Reconsider how to accomplish this.
+                        context.User = null;
+                        FormsAuthentication.SignOut();
+
+                        Logger.ErrorFormat(ErrorMessages.UnknownIdentityProvider, string.Empty);
+                        throw new Saml20Exception(string.Format(ErrorMessages.UnknownIdentityProvider, string.Empty));
+                    }
+
+                    TransferClient(idpEndpoint, context);
+                }
+            }
+            catch (System.Threading.ThreadAbortException)
+            {
+            }
+            catch (Exception ex)
+            {
+                context.Session["SAML2Exception"] = ex.Message;
+                DoLogout(context);
             }
         }
 
@@ -368,6 +379,8 @@ namespace SAML2.Protocol
                 var parser = new HttpRedirectBindingParser(context.Request.Url);
                 response = Serialization.DeserializeFromXmlString<LogoutResponse>(parser.Message);
 
+                CheckResponse(response, context);
+
                 Logger.DebugFormat(TraceMessages.LogoutResponseRedirectBindingParse, parser.Message, parser.SignatureAlgorithm, parser.Signature);
 
                 var idp = RetrieveIDPConfiguration(response.Issuer.Value);
@@ -392,6 +405,8 @@ namespace SAML2.Protocol
 
                 response = Serialization.DeserializeFromXmlString<LogoutResponse>(parser.Message);
 
+                CheckResponse(response, context);
+
                 var idp = RetrieveIDPConfiguration(response.Issuer.Value);
                 if (idp.Metadata == null)
                 {
@@ -415,22 +430,35 @@ namespace SAML2.Protocol
                 message = parser.Message;
             }
 
+            Logger.DebugFormat(TraceMessages.LogoutResponseParsed, message);
+
+            // Log the user out locally
+            DoLogout(context);
+        }
+
+        /// <summary>
+        /// Check if there is a response and that it is successful
+        /// </summary>
+        /// <param name="response">The response.</param>
+        private void CheckResponse(LogoutResponse response, HttpContext context)
+        {
             if (response == null)
             {
                 Logger.ErrorFormat(ErrorMessages.UnsupportedRequestType, context.Request.RequestType);
                 throw new Saml20Exception(string.Format(ErrorMessages.UnsupportedRequestType, context.Request.RequestType));
             }
 
-            Logger.DebugFormat(TraceMessages.LogoutResponseParsed, message);
-
             if (response.Status.StatusCode.Value != Saml20Constants.StatusCodes.Success)
             {
-                Logger.ErrorFormat(ErrorMessages.ResponseStatusNotSuccessful, response.Status.StatusCode.Value);
-                throw new Saml20Exception(string.Format(ErrorMessages.ResponseStatusNotSuccessful, response.Status.StatusCode.Value));
-            }
+                string strStatusCode = response.Status.StatusCode.Value;
+                if (response.Status.StatusCode.SubStatusCode != null)
+                {
+                    strStatusCode += " > " + response.Status.StatusCode.SubStatusCode.Value;
+                }
 
-            // Log the user out locally
-            DoLogout(context);
+                Logger.ErrorFormat(ErrorMessages.ResponseStatusNotSuccessful, strStatusCode);
+                throw new Saml20Exception(string.Format(ErrorMessages.ResponseStatusNotSuccessful, strStatusCode));
+            }
         }
 
         /// <summary>
