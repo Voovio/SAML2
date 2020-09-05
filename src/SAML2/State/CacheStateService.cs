@@ -114,6 +114,11 @@ namespace SAML2.State
 
         private static bool DisallowsSameSiteNone(string userAgent)
         {
+            if (userAgent == null)
+            {
+                return false;
+            }
+
             // Cover all iOS based browsers here. This includes:
             // - Safari on iOS 12 for iPhone, iPod Touch, iPad
             // - WkWebview on iOS 12 for iPhone, iPod Touch, iPad
