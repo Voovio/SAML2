@@ -54,16 +54,21 @@ namespace SAML2.Protocol
             {
                 if (!bool.TryParse(param, out sign))
                 {
+                    Logger.Error(ErrorMessages.MetadataSignQueryParameterInvalid);
                     throw new ArgumentException(ErrorMessages.MetadataSignQueryParameterInvalid);
                 }
             }
-                        
-            context.Response.ContentType = Saml20Constants.MetadataMimetype;
-            context.Response.AddHeader("Content-Disposition", "attachment; filename=\"metadata.xml\"");
+            
+            // Download as metadata.xml file
+            // context.Response.ContentType = Saml20Constants.MetadataMimetype;
+            // context.Response.AddHeader("Content-Disposition", "attachment; filename=\"metadata.xml\"");
+
+            // Display as XML in the browser
+            context.Response.AddHeader("Content-Type", "text/xml");
 
             CreateMetadataDocument(context, sign);
             
-            context.Response.End();            
+            context.Response.End();
         }
 
         #endregion
