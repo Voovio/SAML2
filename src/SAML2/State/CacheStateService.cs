@@ -185,7 +185,7 @@ namespace SAML2.State
         {
             var prefix = string.Empty;
 
-            var cookie = context.Request.Cookies[CookieName];
+            var cookie = context.Request.Cookies[CookieName + context.Request.ApplicationPath];
             if (cookie != null && !string.IsNullOrEmpty(cookie.Value))
             {
                 prefix = GetDecryptedTicketValue(cookie.Value);
@@ -200,9 +200,10 @@ namespace SAML2.State
             var cookieValue = GetEncryptedTicket(prefix, expiration);
 
             // Poor mans sliding expiration cookie reissue
-            cookie = new HttpCookie(CookieName)
+            cookie = new HttpCookie(CookieName + context.Request.ApplicationPath)
                 {
                     Value = cookieValue,
+                    Path = context.Request.ApplicationPath,
                     Expires = expiration,
                     HttpOnly = true,
                     Secure = true
