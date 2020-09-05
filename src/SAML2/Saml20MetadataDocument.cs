@@ -88,7 +88,34 @@ namespace SAML2
             }
 
             ExtractKeyDescriptors(entityDescriptor);
-            Entity = Serialization.DeserializeFromXmlString<EntityDescriptor>(entityDescriptor.OuterXml);
+
+            try
+            {
+                // Check for Active Directory Federation Services (ADFS) generated non-standard SAML metadata
+                XmlNodeList nodes = entityDescriptor.DocumentElement.ChildNodes;
+                for (int i = nodes.Count - 1; i >= 0; i--)
+                {
+                    XmlNode node = nodes[i];
+
+                    if (node.Attributes == null || node.Attributes["xsi:type"] == null)
+                    {
+                        continue;
+                    }
+
+                    if (node.Attributes["xsi:type"].Value == "fed:SecurityTokenServiceType" ||
+                        node.Attributes["xsi:type"].Value == "fed:ApplicationServiceType")
+                    {
+                        entityDescriptor.DocumentElement.RemoveChild(node);
+                    }
+                }
+
+                Entity = Serialization.DeserializeFromXmlString<EntityDescriptor>(entityDescriptor.OuterXml);
+            }
+            catch (Exception)
+            {
+                // Use this to check XML deserialization exceptions (e.g. Non-standard SAML metadata or malformed XML)
+                // Otherwise, the Metadata file is just ignored and we don't have any way to know why
+            }
         }
 
         /// <summary>
@@ -546,9 +573,9 @@ namespace SAML2
             {
                 entity.Organization = new Schema.Metadata.Organization
                 {
-                    OrganizationName = new[] { new LocalizedName { Value = config.Metadata.Organization.Name } },
-                    OrganizationDisplayName = new[] { new LocalizedName { Value = config.Metadata.Organization.DisplayName } },
-                    OrganizationURL = new[] { new LocalizedURI { Value = config.Metadata.Organization.Url } }
+                    OrganizationName = new[] { new LocalizedName { Value = config.Metadata.Organization.Name, Language = "en" } },
+                    OrganizationDisplayName = new[] { new LocalizedName { Value = config.Metadata.Organization.DisplayName, Language = "en" } },
+                    OrganizationURL = new[] { new LocalizedURI { Value = config.Metadata.Organization.Url, Language = "en" } }
                 };
             }
 
