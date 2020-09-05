@@ -43,6 +43,11 @@ namespace SAML2.Bindings
             // If the message is signed, save the original, encoded parameters so that the signature can be verified.
             if (IsSigned)
             {
+                if (SignatureAlgorithm != SignatureAlgorithmDSASHA1 && SignatureAlgorithm != SignatureAlgorithmRSASHA1 && SignatureAlgorithm != SignatureAlgorithmRSASHA256)
+                {
+                    throw new ArgumentException("The signature algorithm '" + SignatureAlgorithm + "' is not supported.");
+                }
+
                 CreateSignatureSubject(paramDict);
             }
 
@@ -102,6 +107,10 @@ namespace SAML2.Bindings
         /// <value>The signature algorithm.</value>
         public string SignatureAlgorithm { get; private set; }
 
+        public const string SignatureAlgorithmDSASHA1 = "http://www.w3.org/2000/09/xmldsig#dsa-sha1";
+        public const string SignatureAlgorithmRSASHA1 = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
+        public const string SignatureAlgorithmRSASHA256 = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
         /// <summary>
         /// Validates the signature using the public part of the asymmetric key given as parameter.
         /// </summary>
@@ -127,17 +136,34 @@ namespace SAML2.Bindings
                 throw new InvalidOperationException("Query is not signed, so there is no signature to verify.");
             }
 
-            var hash = new SHA1Managed().ComputeHash(Encoding.UTF8.GetBytes(_signedquery));
-            if (key is RSACryptoServiceProvider)
+            byte[] hash;
+            if (key is RSACryptoServiceProvider && (SignatureAlgorithm == SignatureAlgorithmRSASHA1 || SignatureAlgorithm == SignatureAlgorithmRSASHA256))
             {
+                string hashAlgorithm;
+
+                if (SignatureAlgorithm == SignatureAlgorithmRSASHA1)
+                {
+                    hash = new SHA1Managed().ComputeHash(Encoding.UTF8.GetBytes(_signedquery));
+                    hashAlgorithm = "SHA1";
+                }
+                else
+                {
+                    hash = new SHA256Managed().ComputeHash(Encoding.UTF8.GetBytes(_signedquery));
+                    hashAlgorithm = "SHA256";
+                }
+
                 var rsa = (RSACryptoServiceProvider)key;
-                return rsa.VerifyHash(hash, "SHA1", DecodeSignature());
+                return rsa.VerifyHash(hash, hashAlgorithm, DecodeSignature());
             }
-            else
+            else if (key is DSA && SignatureAlgorithm == SignatureAlgorithmDSASHA1)
             {
+                hash = new SHA1Managed().ComputeHash(Encoding.UTF8.GetBytes(_signedquery));
+
                 var dsa = (DSA)key;
                 return dsa.VerifySignature(hash, DecodeSignature());
             }
+
+            return false;
         }
 
         /// <summary>
