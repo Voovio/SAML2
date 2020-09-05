@@ -175,11 +175,16 @@ namespace SAML2.Validation
                         }
 
                         authnContextDeclRefFound = true;
-                        if (!Uri.IsWellFormedUriString((string)authnContext.Items[i], UriKind.Absolute))
-                        {
-                            throw new Saml20FormatException("AuthnContextDeclRef has a value which is not a wellformed absolute uri");
-                        }
 
+                        // We skip checking that the value of <AuthnContextDeclRef> is an Absolute URI
+                        // Although the specification says: "Unless otherwise indicated in this specification, all URI reference values used within SAML-defined elements or attributes MUST consist of at least one non-whitespace character, and are REQUIRED to be absolute [RFC 2396]."
+                        // Some systems (e.g. NetIQ Access Manager) provide values like the following:
+                        //   - <saml:AuthnContextDeclRef>name/password/uri</saml:AuthnContextDeclRef>
+                        //   - <saml:AuthnContextDeclRef>SmartCard/uri</saml:AuthnContextDeclRef>
+                        // if (!Uri.IsWellFormedUriString((string)authnContext.Items[i], UriKind.Absolute))
+                        // {
+                        //    throw new Saml20FormatException("AuthnContextDeclRef has a value which is not a wellformed absolute uri");
+                        // }
                         break;
                     case Schema.Core.AuthnContextType.AuthnContextDecl:
                         throw new Saml20FormatException("AuthnContextDecl elements are not allowed in this implementation");
