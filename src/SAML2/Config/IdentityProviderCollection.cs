@@ -376,7 +376,7 @@ namespace SAML2.Config
                 // No entity descriptor found. 
                 throw new InvalidDataException();
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Probably not a metadata file.
                 return null;

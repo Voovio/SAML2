@@ -211,7 +211,7 @@
     <value>The specified metadata directory "{0}" could not be located</value>
   </data>
   <data name="MetadataSignQueryParameterInvalid" xml:space="preserve">
-    <value>The "sign"query string parameter could not be parsed</value>
+    <value>The "sign" query string parameter could not be parsed</value>
   </data>
   <data name="ReplayAttack" xml:space="preserve">
     <value>Possible replay attack detected, unexpected value {0} for InResponseTo, expected {1}</value>
@@ -235,7 +235,7 @@
     <value>Response with status code NoPassive received. A user cannot be signed in with the IsPassiveFlag set when the user does not have a session with the identity provider</value>
   </data>
   <data name="ResponseStatusNotSuccessful" xml:space="preserve">
-    <value>Response with status code "{0}" received when "Success"was expected</value>
+    <value>Response with status code "{0}" received when "Success" was expected</value>
   </data>
   <data name="SOAPMessageUnsupportedSamlMessage" xml:space="preserve">
     <value>SOAP message did not contain a supported SamlMessage element</value>
