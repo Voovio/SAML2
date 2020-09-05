@@ -1,4 +1,6 @@
-﻿using System.Configuration;
+﻿using System;
+using System.Configuration;
+using System.Reflection;
 using SAML2.Config.ConfigurationManager;
 
 namespace SAML2.Config
@@ -131,6 +133,20 @@ namespace SAML2.Config
             {
                 foreach (var action in section.Actions)
                 {
+                    // Check that the Action Type is accessible from SAML2 Assembly
+                    if (Type.GetType(action.Type) == null)
+                    {
+                        foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                        {
+                            Type actionType = assembly.GetType(action.Type);
+                            if (actionType != null)
+                            {
+                                action.Type = actionType.AssemblyQualifiedName;
+                                break;
+                            }
+                        }
+                    }
+
                     config.Actions.Add(new Action { Name = action.Name, Type = action.Type });
                 }
             }
